@@ -1,0 +1,42 @@
+# Overleaf Workshop / editor metadata
+.overleaf/
+.vscode/
+
+# Compiled paper PDF (specific to main tex, so figure PDFs remain tracked)
+conference_101719.pdf
+
+# LaTeX auxiliary and build files
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+*.bcf
+*.run.xml
+*.dvi
+*.ps
+*.idx
+*.ilg
+*.ind
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.ist
+*.loa
+*.xdv
+
+# OS files
+.DS_Store
+Thumbs.db

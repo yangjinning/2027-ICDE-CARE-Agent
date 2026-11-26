@@ -1,0 +1,100 @@
+\section{Experiments}
+\label{sec:experiments}
+
+We evaluate CareAgent across five intensive care unit (ICU) clinical prediction tasks under both in-center and cross-center generalization settings.
+
+\begin{table*}[t]
+\centering
+\caption{Summary of the Five ICU Clinical Prediction Tasks Across MIMIC-IV (v3.1) and eICU-CRD ($|\mathcal{C}|=52$ Features: 4 Static, 48 Dynamic).}
+\label{tab:datasets}
+\scriptsize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{llllcc}
+\toprule
+Task & Prediction Type & Granularity (Window) & Metrics & MIMIC-IV Stays (Rows / Target) & eICU-CRD Stays (Rows / Target) \\
+\midrule
+Mortality24 & Binary Cls. & Stay-level ($0$--$24\text{ h}$) & AUPRC$\uparrow$, AUROC$\uparrow$ & $49{,}526$ ($49{,}526$ / $7.24\%$ pos.) & $113{,}381$ ($113{,}381$ / $5.52\%$ pos.) \\
+AKI & Binary Cls. & Hourly ($\le 168\text{ h}$, $[-6,+6]\text{ h}$) & AUPRC$\uparrow$, AUROC$\uparrow$ & $62{,}821$ ($2.71\text{M}$ / $12.33\%$ pos.) & $164{,}882$ ($6.63\text{M}$ / $11.95\%$ pos.) \\
+SEPSIS & Binary Cls. & Hourly ($\le 168\text{ h}$, $[-6,+6]\text{ h}$) & AUPRC$\uparrow$, AUROC$\uparrow$ & $63{,}428$ ($3.36\text{M}$ / $1.28\%$ pos.) & $123{,}395$ ($6.42\text{M}$ / $1.13\%$ pos.) \\
+Kidney Function & Regression & Stay-level ($24$--$48\text{ h}$ crea.) & MAE (mg/dL)$\downarrow$ & $33{,}951$ ($33{,}951$ / $1.47{\pm}1.42$) & $69{,}116$ ($69{,}116$ / $1.53{\pm}1.48$) \\
+LOS & Regression & Hourly ($\le 168\text{ h}$ rem.) & MAE (h)$\downarrow$ & $71{,}965$ ($4.72\text{M}$ / $67.75{\pm}58.80$) & $182{,}788$ ($10.67\text{M}$ / $60.73{\pm}55.76$) \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Datasets and Tasks}
+\label{sec:datasets}
+
+We benchmark all methods on two public critical care electronic health record (EHR) databases harmonized under the YAIB schema~\cite{vandewater2024yaib}: MIMIC-IV (v3.1)~\cite{johnson2023mimic} (single-center, Beth Israel Deaconess Medical Center) for autonomous search and 5-fold in-center evaluation, and eICU-CRD~\cite{pollard2018eicu} (multi-center, $>200$ US hospitals) for zero-shot cross-center transfer. Each ICU stay provides $|\mathcal{C}|=52$ standardized clinical variables (4 static demographic and 48 hourly dynamic physiological and laboratory features). Following Section~\ref{sec:problem}, we cover five tasks spanning stay-level one-shot vs.\ hourly rolling prediction and classification vs.\ regression: in-hospital mortality from the first 24~h (Mortality24), hourly acute kidney injury (AKI) and sepsis (SEPSIS) onset detection within $[-6\text{ h}, +6\text{ h}]$, 24--48~h median serum creatinine prediction (Kidney Function), and hourly remaining ICU length of stay (LOS). Detailed cohort statistics and evaluation metrics are summarized in Table~\ref{tab:datasets}.
+
+\subsection{Baselines}
+\label{sec:baselines}
+
+We compare CareAgent against twelve baselines spanning fixed clinical models, generalist coding and machine learning (ML) agents, and healthcare agents:
+\begin{itemize}
+    \item \textit{YAIB}~\cite{vandewater2024yaib}: Five fixed-architecture clinical ML benchmarks trained on identical splits: YAIB-LightGBM, YAIB-GRU, YAIB-LSTM, YAIB-TCN, and YAIB-Transformer.
+    \item \textit{OpenHands}~\cite{wang2025openhands}: An open-source framework for generalist autonomous software-development agents that write, edit, and run code interactively within an isolated sandboxed workspace.
+    \item \textit{AIDEML}~\cite{jiang2025aide}: An agentic ML framework that performs tree-structured exploration in code space via iterative drafting, debugging, and refinement.
+    \item \textit{AIRA}~\cite{toledo2025aira}: An AI research agent for automated ML experimentation; we adopt its Monte Carlo Tree Search (MCTS) search strategy (denoted uniformly as AIRA in Table~\ref{tab:overall_performance}).
+    \item \textit{AutoML-Agent}~\cite{trirat2025automlagent}: A multi-agent LLM framework for full-pipeline AutoML using retrieval-augmented planning across specialist sub-agents.
+    \item \textit{FOREAGENT}~\cite{zheng2026foreagent}: A predictive ML-engineering agent using a predict-then-verify loop with execution priors to forecast candidate outcomes before running code.
+    \item \textit{HealthFlow}~\cite{zhu2026healthflow}: A strategically self-evolving multi-agent framework for EHR analysis that coordinates meta-planning, execution, evaluation, and reflection into a persistent knowledge base.
+    \item \textit{MedRSI}~\cite{wu2026medrsi}: A medical recursive self-improvement agent that turns diagnostic failures into new capabilities via clinical-cost-aware prioritization and cohort-validated registration.
+\end{itemize}
+
+\subsection{Implementation Details}
+\label{sec:implementation}
+
+\textit{Harness, LLM Backbone, and Budget.}
+Our initial harness is OpenHands v1.53.0 (\texttt{openhands-sdk}/\texttt{openhands-tools} v1.53.0, Python 3.12). All agentic baselines and CareAgent use GLM-5.2 (ZhipuAI) with web search disabled. For $\mathcal{A}_{\text{exp}}$, we set the sampling temperature to 0.5, reasoning effort to \texttt{high}, and maximum output length to $65{,}536$ tokens (with \texttt{LLMSummarizingCondenser} at \texttt{medium} effort); for the stateless $\mathcal{A}_{\text{aud}}$, we set the temperature to 0.2 and maximum output length to $32{,}768$ tokens. For the Guideline Alignment Score ($\text{GAS}$), we fix $\tau_w=0.25$ and $\tau_{\text{act}}=0.01$. All experiments run on a server equipped with $8\times$ NVIDIA RTX PRO 6000 Blackwell Server Edition GPUs (96~GB VRAM each). Every agentic method shares a strict budget of $B=50$ submitted runs (\texttt{early\_stopping=False}); CareAgent devotes its first $N_0=5$ submissions to initializing five diverse seed models across heterogeneous model families.
+
+\textit{Guardrails and Evaluation Protocol.}
+Candidates execute in an isolated worker runtime (\texttt{seed=1}) with unified training caps (50 epochs with patience 3 for neural models, 100 boosting rounds for trees, and $1{,}000$ iterations for linear models) and verified GPU execution. Patient-disjoint splits, hidden test labels, \texttt{FitGuard} training-only checks, and causal hourly prefix streaming ($\tau \le t$) strictly prevent leakage. On MIMIC-IV, search runs on fold 0; the winning candidate is frozen and refitted across all 5 locked test folds (mean$_{\pm\text{std}}$). For MIMIC-IV $\rightarrow$ eICU, the frozen MIMIC-IV candidate is zero-shot refitted on the eICU-CRD training split (\texttt{r0f0}) without further search and evaluated on the locked test split.
+
+\subsection{Overall Performance}
+\label{sec:overall_performance}
+
+Table~\ref{tab:overall_performance} summarizes the in-center 5-fold locked-test performance on MIMIC-IV (left) and the zero-shot cross-center generalization performance from MIMIC-IV to eICU-CRD (right) across all five ICU prediction tasks.
+
+\begin{table*}[t]
+\centering
+\caption{Overall Performance Comparison Across Five ICU Clinical Prediction Tasks Under In-Center 5-Fold Locked-Test Evaluation on MIMIC-IV (Left, Mean$_{\pm\text{std}}$) and Zero-Shot Cross-Center Refit Transfer From MIMIC-IV to eICU-CRD (Right). Higher Is Better ($\uparrow$) for AUPRC and AUROC; Lower Is Better ($\downarrow$) for MAE. Best Results Are Bolded and Second-Best Results Are Underlined.}
+\label{tab:overall_performance}
+\setlength{\tabcolsep}{2.4pt}
+\renewcommand{\arraystretch}{1.15}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccccccccccc}
+\toprule
+\multirow{3}{*}{Method} & \multicolumn{8}{c}{\textbf{MIMIC-IV}} & \multicolumn{8}{c}{\textbf{MIMIC-IV $\rightarrow$ eICU}} \\
+\cmidrule(lr){2-9} \cmidrule(lr){10-17}
+ & \multicolumn{2}{c}{Mortality24} & \multicolumn{2}{c}{AKI} & \multicolumn{2}{c}{SEPSIS} & Kidney Function & LOS & \multicolumn{2}{c}{Mortality24} & \multicolumn{2}{c}{AKI} & \multicolumn{2}{c}{SEPSIS} & Kidney Function & LOS \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-8} \cmidrule(lr){9-9} \cmidrule(lr){10-11} \cmidrule(lr){12-13} \cmidrule(lr){14-15} \cmidrule(lr){16-16} \cmidrule(lr){17-17}
+ & AUPRC$\uparrow$ & AUROC$\uparrow$ & AUPRC$\uparrow$ & AUROC$\uparrow$ & AUPRC$\uparrow$ & AUROC$\uparrow$ & MAE (mg/dL)$\downarrow$ & MAE (h)$\downarrow$ & AUPRC$\uparrow$ & AUROC$\uparrow$ & AUPRC$\uparrow$ & AUROC$\uparrow$ & AUPRC$\uparrow$ & AUROC$\uparrow$ & MAE (mg/dL)$\downarrow$ & MAE (h)$\downarrow$ \\
+\midrule
+YAIB-LightGBM & 0.4182$_{\pm 0.0047}$ & 0.8808$_{\pm 0.0014}$ & 0.5323$_{\pm 0.0019}$ & 0.8472$_{\pm 0.0008}$ & 0.0987$_{\pm 0.0020}$ & 0.8345$_{\pm 0.0027}$ & 0.2548$_{\pm 0.0007}$ & 38.6962$_{\pm 0.0259}$ & 0.3789 & \underline{0.8681} & 0.5167 & 0.8562 & 0.0469 & 0.7590 & 0.2894 & 37.9858 \\
+YAIB-GRU & 0.3950$_{\pm 0.0060}$ & 0.8678$_{\pm 0.0030}$ & 0.7232$_{\pm 0.0063}$ & 0.9094$_{\pm 0.0023}$ & 0.0937$_{\pm 0.0038}$ & 0.8282$_{\pm 0.0049}$ & 0.2915$_{\pm 0.0054}$ & 38.0641$_{\pm 0.2205}$ & 0.3684 & 0.8577 & 0.7368 & 0.9110 & 0.0499 & 0.7696 & 0.3455 & 36.8235 \\
+YAIB-LSTM & 0.3840$_{\pm 0.0085}$ & 0.8624$_{\pm 0.0025}$ & 0.6990$_{\pm 0.0087}$ & 0.9021$_{\pm 0.0018}$ & 0.0862$_{\pm 0.0017}$ & 0.8196$_{\pm 0.0031}$ & 0.2772$_{\pm 0.0078}$ & 37.8922$_{\pm 0.3553}$ & 0.3665 & 0.8579 & 0.7265 & 0.9076 & 0.0430 & 0.7560 & 0.3265 & 37.5876 \\
+YAIB-TCN & 0.3801$_{\pm 0.0150}$ & 0.8628$_{\pm 0.0064}$ & 0.7065$_{\pm 0.0043}$ & 0.9052$_{\pm 0.0008}$ & 0.0941$_{\pm 0.0049}$ & 0.8259$_{\pm 0.0056}$ & 0.2833$_{\pm 0.0077}$ & 37.9296$_{\pm 0.4205}$ & 0.3599 & 0.8536 & 0.7220 & 0.9069 & 0.0451 & 0.7513 & 0.3134 & 38.0584 \\
+YAIB-Transformer & 0.3882$_{\pm 0.0156}$ & 0.8585$_{\pm 0.0084}$ & 0.6516$_{\pm 0.0116}$ & 0.8921$_{\pm 0.0029}$ & 0.0886$_{\pm 0.0024}$ & 0.8228$_{\pm 0.0058}$ & 0.2768$_{\pm 0.0093}$ & 36.6800$_{\pm 0.6595}$ & 0.3679 & 0.8582 & 0.6808 & 0.8960 & 0.0438 & 0.7553 & 0.3642 & 36.9486 \\
+\midrule
+OpenHands & 0.4229$_{\pm 0.0054}$ & 0.8814$_{\pm 0.0021}$ & 0.4566$_{\pm 0.0023}$ & 0.8149$_{\pm 0.0013}$ & 0.0931$_{\pm 0.0126}$ & 0.8275$_{\pm 0.0134}$ & 0.2220$_{\pm 0.0009}$ & 35.3102$_{\pm 0.1217}$ & 0.3817 & \textbf{0.8685} & 0.4607 & 0.8338 & 0.0530 & 0.7793 & 0.2712 & 35.4127 \\
+AIDEML & 0.4207$_{\pm 0.0095}$ & 0.8746$_{\pm 0.0034}$ & 0.6641$_{\pm 0.0005}$ & 0.8883$_{\pm 0.0002}$ & 0.0778$_{\pm 0.0126}$ & 0.8246$_{\pm 0.0123}$ & 0.2271$_{\pm 0.0008}$ & 35.0264$_{\pm 0.0500}$ & 0.3603 & 0.8532 & 0.6272 & 0.8845 & 0.0387 & 0.7416 & 0.2771 & 35.0921 \\
+AIRA & 0.4182$_{\pm 0.0070}$ & 0.8729$_{\pm 0.0040}$ & 0.7560$_{\pm 0.0016}$ & \textbf{0.9184}$_{\pm 0.0007}$ & \underline{0.1103}$_{\pm 0.0018}$ & 0.8419$_{\pm 0.0032}$ & 0.2230$_{\pm 0.0008}$ & 35.0871$_{\pm 0.1405}$ & 0.3598 & 0.8566 & \underline{0.7488} & \underline{0.9125} & \textbf{0.0640} & \underline{0.7865} & 0.2714 & 34.7003 \\
+AutoML-Agent & 0.3908$_{\pm 0.0099}$ & 0.8679$_{\pm 0.0066}$ & 0.5708$_{\pm 0.0014}$ & 0.8589$_{\pm 0.0014}$ & 0.0128$_{\pm 0.0000}$ & 0.5000$_{\pm 0.0000}$ & 0.2295$_{\pm 0.0008}$ & 35.5247$_{\pm 0.3248}$ & 0.3510 & 0.8573 & 0.4688 & 0.8192 & 0.0113 & 0.5000 & 0.2764 & 35.5479 \\
+FOREAGENT & 0.4381$_{\pm 0.0063}$ & \textbf{0.8863}$_{\pm 0.0011}$ & 0.7035$_{\pm 0.0011}$ & 0.9008$_{\pm 0.0009}$ & 0.1076$_{\pm 0.0075}$ & \underline{0.8483}$_{\pm 0.0029}$ & \underline{0.2194}$_{\pm 0.0004}$ & \underline{34.2353}$_{\pm 0.0213}$ & 0.3793 & 0.8676 & 0.6793 & 0.8957 & 0.0541 & 0.7800 & \underline{0.2687} & \textbf{34.6268} \\
+HealthFlow & \underline{0.4416}$_{\pm 0.0078}$ & \underline{0.8843}$_{\pm 0.0015}$ & 0.7125$_{\pm 0.0015}$ & 0.9028$_{\pm 0.0009}$ & 0.0766$_{\pm 0.0051}$ & 0.8272$_{\pm 0.0048}$ & 0.2246$_{\pm 0.0015}$ & 35.1940$_{\pm 0.0359}$ & \underline{0.3865} & 0.8675 & 0.6719 & 0.8876 & 0.0414 & 0.7501 & 0.2812 & 35.4322 \\
+MedRSI & 0.3796$_{\pm 0.0145}$ & 0.8587$_{\pm 0.0085}$ & \underline{0.7566}$_{\pm 0.0010}$ & 0.9170$_{\pm 0.0003}$ & 0.0853$_{\pm 0.0176}$ & 0.8106$_{\pm 0.0578}$ & 0.2251$_{\pm 0.0012}$ & 35.3301$_{\pm 0.0947}$ & 0.3535 & 0.8476 & 0.7362 & 0.9105 & 0.0535 & 0.7786 & 0.2747 & 35.7555 \\
+\midrule
+\textbf{CareAgent} & \textbf{0.4433}$_{\pm 0.0031}$ & 0.8824$_{\pm 0.0012}$ & \textbf{0.7571}$_{\pm 0.0009}$ & \underline{0.9178}$_{\pm 0.0004}$ & \textbf{0.1267}$_{\pm 0.0019}$ & \textbf{0.8538}$_{\pm 0.0016}$ & \textbf{0.2156}$_{\pm 0.0006}$ & \textbf{34.1126}$_{\pm 0.0679}$ & \textbf{0.3868} & 0.8670 & \textbf{0.7496} & \textbf{0.9145} & \underline{0.0601} & \textbf{0.7884} & \textbf{0.2634} & \underline{34.6974} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\textit{In-Center Performance on MIMIC-IV.}
+CareAgent achieves the best primary metric across all five clinical prediction tasks on MIMIC-IV, outperforming every fixed clinical benchmark and autonomous agent baseline. Specifically, on the highly imbalanced Sepsis task ($1.28\%$ prevalence), CareAgent achieves 0.1267 AUPRC and 0.8538 AUROC, surpassing the strongest baseline (AIRA at 0.1103 AUPRC) by $+14.9\%$ relative AUPRC and the strongest fixed YAIB baseline (YAIB-LightGBM at 0.0987) by $+28.4\%$. On Kidney Function, CareAgent achieves the lowest MAE of $0.2156\text{ mg/dL}$, reducing error by $15.4\%$ over YAIB-LightGBM ($0.2548\text{ mg/dL}$) and outperforming the runner-up FOREAGENT ($0.2194\text{ mg/dL}$). On AKI, CareAgent achieves the highest AUPRC of 0.7571 (and second-best AUROC of 0.9178), surpassing all YAIB baselines (best: YAIB-GRU at 0.7232 AUPRC) as well as MedRSI (0.7566 AUPRC) and AIRA (0.7560 AUPRC). On Mortality24 and LOS, CareAgent likewise ranks first on both primary metrics, achieving 0.4433 AUPRC (ahead of HealthFlow at 0.4416) and $34.1126\text{ h}$ MAE (ahead of FOREAGENT at $34.2353\text{ h}$ and YAIB-Transformer at $36.6800\text{ h}$).
+
+By contrast, existing baselines exhibit pronounced task-to-task instability. Fixed YAIB models lag behind agent-discovered pipelines on four of the five tasks, particularly on Kidney Function and LOS where tailored temporal feature engineering is critical. General-purpose coding and AutoML agents struggle with acute-onset rolling tasks: OpenHands drops to 0.4566 AUPRC on AKI, while AutoML-Agent collapses to a degenerate predictor (0.0128 AUPRC, 0.5000 AUROC) on Sepsis under extreme class imbalance. Even strong domain-specific agents show sharp trade-offs: HealthFlow performs well on Mortality24 (0.4416 AUPRC) but degrades to 0.0766 AUPRC on Sepsis, whereas MedRSI is competitive on AKI (0.7566 AUPRC) but drops to 0.3796 AUPRC on Mortality24 and 0.0853 AUPRC on Sepsis.
+
+\textit{Cross-Center Generalization (MIMIC-IV $\rightarrow$ eICU-CRD).}
+The advantage of CareAgent becomes even more pronounced under zero-shot cross-center transfer to eICU-CRD, where models must remain robust across more than 200 distinct hospitals without re-searching or re-tuning. CareAgent achieves the best performance in five of the eight cross-center columns---Mortality24 AUPRC (0.3868), AKI AUPRC (0.7496), AKI AUROC (0.9145), Sepsis AUROC (0.7884), and Kidney Function MAE ($0.2634\text{ mg/dL}$)---and the second-best performance in two additional columns: Sepsis AUPRC (0.0601) and LOS MAE ($34.6974\text{ h}$, within $0.07\text{ h}$ of FOREAGENT's $34.6268\text{ h}$). Notably, while MedRSI is close to CareAgent in-center on MIMIC-IV AKI (0.7566 vs.\ 0.7571 AUPRC), its performance degrades noticeably upon transfer to eICU-CRD (0.7362 vs.\ 0.7496 AUPRC; 0.9105 vs.\ 0.9145 AUROC), demonstrating that clinically audited feature representations resist center-specific overfitting.
